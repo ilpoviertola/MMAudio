@@ -60,6 +60,24 @@ Clotho:
   tsv: ../data/v1-16-memmap/clotho.tsv
   memmap_dir: ../data/v1-16-memmap/clotho
 
+ExtractedAVS:
+  tsv: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap/avs-train.tsv
+  memmap_dir: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap_with_maskvideo/avs-train
+
+ExtractedAVS_val:
+  tag: val
+  gt_cache: null
+  output_subdir: val
+  tsv: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap/avs-val.tsv
+  memmap_dir: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap_with_maskvideo/avs-val
+
+ExtractedAVS_test:
+  tag: test
+  gt_cache: null
+  output_subdir: null
+  tsv: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap/avs-test.tsv
+  memmap_dir: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap_with_maskvideo/avs-test
+
 Example_video:
   tsv: ./training/example_output/memmap/vgg-example.tsv
   memmap_dir: ./training/example_output/memmap/vgg-example
@@ -67,4 +85,3 @@ Example_video:
 Example_audio:
   tsv: ./training/example_output/memmap/audio-example.tsv
   memmap_dir: ./training/example_output/memmap/audio-example
-  

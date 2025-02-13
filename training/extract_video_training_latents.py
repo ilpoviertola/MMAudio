@@ -8,12 +8,16 @@ import pandas as pd
 import tensordict as td
 import torch
 import torch.distributed as distributed
+import torch.distributed.elastic
+import torch.distributed.elastic.multiprocessing
+import torch.distributed.elastic.multiprocessing.errors
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm
 
 from mmaudio.data.data_setup import error_avoidance_collate
 from mmaudio.data.extraction.vgg_sound import VGGSound
+from mmaudio.data.extraction.avs_dataset import AVS
 from mmaudio.model.utils.features_utils import FeaturesUtils
 from mmaudio.utils.dist_utils import local_rank, world_size
 
@@ -34,12 +38,21 @@ NOTE: 352800 (8*44100) is not divisible by (STFT hop size * VAE downsampling rat
 353280 is the next integer divisible by 1024.
 """
 
+# SAMPLING_RATE = 44100
+# DURATION_SEC = 8.0
+# NUM_SAMPLES = 353280
+# vae_path = "./ext_weights/v1-44.pth"
+# bigvgan_path = None
+# mode = "44k"
+
+# for the AVS dataset
+AVS_DATASET = True
 SAMPLING_RATE = 44100
-DURATION_SEC = 8.0
-NUM_SAMPLES = 353280
+DURATION_SEC = 5.0
+NUM_SAMPLES = 221184
 vae_path = "./ext_weights/v1-44.pth"
 bigvgan_path = None
-mode = "44k"
+mode = "44k_avs"
 
 synchformer_ckpt = "./ext_weights/synchformer_state_dict.pth"
 
@@ -58,18 +71,18 @@ data_cfg = {
     #     "normalize_audio": True,
     # },
     "train": {
-        "root": "/home/hdd/ilpo/datasets/vggsound/h264_video_25fps_256side_44100hz_aac",
-        "subset_name": "./sets/vgg3-train.tsv",
+        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos/train",
+        "subset_name": "./sets/avs-train.tsv",
         "normalize_audio": True,
     },
     "test": {
-        "root": "/home/hdd/ilpo/datasets/vggsound/h264_video_25fps_256side_44100hz_aac",
-        "subset_name": "./sets/vgg3-test.tsv",
+        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos/test",
+        "subset_name": "./sets/avs-test.tsv",
         "normalize_audio": False,
     },
     "val": {
-        "root": "/home/hdd/ilpo/datasets/vggsound/h264_video_25fps_256side_44100hz_aac",
-        "subset_name": "./sets/vgg3-val.tsv",
+        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos/val",
+        "subset_name": "./sets/avs-val.tsv",
         "normalize_audio": False,
     },
 }
@@ -82,14 +95,24 @@ def distributed_setup():
 
 
 def setup_dataset(split: str):
-    dataset = VGGSound(
-        data_cfg[split]["root"],
-        tsv_path=data_cfg[split]["subset_name"],
-        sample_rate=SAMPLING_RATE,
-        duration_sec=DURATION_SEC,
-        audio_samples=NUM_SAMPLES,
-        normalize_audio=data_cfg[split]["normalize_audio"],
-    )
+    if not AVS_DATASET:
+        dataset = VGGSound(
+            data_cfg[split]["root"],
+            tsv_path=data_cfg[split]["subset_name"],
+            sample_rate=SAMPLING_RATE,
+            duration_sec=DURATION_SEC,
+            audio_samples=NUM_SAMPLES,
+            normalize_audio=data_cfg[split]["normalize_audio"],
+        )
+    else:
+        dataset = AVS(
+            data_cfg[split]["root"],
+            tsv_path=data_cfg[split]["subset_name"],
+            sample_rate=SAMPLING_RATE,
+            duration_sec=DURATION_SEC,
+            audio_samples=NUM_SAMPLES,
+            normalize_audio=data_cfg[split]["normalize_audio"],
+        )
     sampler = DistributedSampler(dataset, rank=local_rank, shuffle=False)
     loader = DataLoader(
         dataset,
@@ -103,6 +126,7 @@ def setup_dataset(split: str):
     return dataset, loader
 
 
+@torch.distributed.elastic.multiprocessing.errors.record
 @torch.inference_mode()
 def extract():
     # initial setup
@@ -122,17 +146,17 @@ def extract():
 
     # cuda setup
     torch.cuda.set_device(local_rank)
-    feature_extractor = (
-        FeaturesUtils(
-            tod_vae_ckpt=vae_path,
-            enable_conditions=True,
-            bigvgan_vocoder_ckpt=bigvgan_path,
-            synchformer_ckpt=synchformer_ckpt,
-            mode=mode,
-        )
-        .eval()
-        .cuda()
-    )
+    # feature_extractor = (
+    #     FeaturesUtils(
+    #         tod_vae_ckpt=vae_path,
+    #         enable_conditions=True,
+    #         bigvgan_vocoder_ckpt=bigvgan_path,
+    #         synchformer_ckpt=synchformer_ckpt,
+    #         mode=mode,
+    #     )
+    #     .eval()
+    #     .cuda()
+    # )
 
     for split in data_cfg.keys():
         print(f"Extracting latents for the {split} split")
@@ -140,36 +164,39 @@ def extract():
         this_latent_dir.mkdir(parents=True, exist_ok=True)
 
         # setup datasets
-        dataset, loader = setup_dataset(split)
-        log.info(f"Number of samples: {len(dataset)}")
-        log.info(f"Number of batches: {len(loader)}")
+        # dataset, loader = setup_dataset(split)
+        # log.info(f"Number of samples: {len(dataset)}")
+        # log.info(f"Number of batches: {len(loader)}")
 
-        for curr_iter, data in enumerate(tqdm(loader)):
-            output = {
-                "id": data["id"],
-                "caption": data["caption"],
-            }
+        # for curr_iter, data in enumerate(tqdm(loader)):
+        #     output = {
+        #         "id": data["id"],
+        #         "caption": data["caption"],
+        #     }
 
-            audio = data["audio"].cuda()
-            dist = feature_extractor.encode_audio(audio)
-            output["mean"] = dist.mean.detach().cpu().transpose(1, 2)
-            output["std"] = dist.std.detach().cpu().transpose(1, 2)
+        #     audio = data["audio"].cuda()
+        #     dist = feature_extractor.encode_audio(audio)
+        #     output["mean"] = dist.mean.detach().cpu().transpose(1, 2)
+        #     output["std"] = dist.std.detach().cpu().transpose(1, 2)
 
-            clip_video = data["clip_video"].cuda()
-            clip_features = feature_extractor.encode_video_with_clip(clip_video)
-            output["clip_features"] = clip_features.detach().cpu()
+        #     clip_video = data["clip_video"].cuda()
+        #     clip_features = feature_extractor.encode_video_with_clip(clip_video)
+        #     output["clip_features"] = clip_features.detach().cpu()
 
-            sync_video = data["sync_video"].cuda()
-            sync_features = feature_extractor.encode_video_with_sync(sync_video)
-            output["sync_features"] = sync_features.detach().cpu()
+        #     sync_video = data["sync_video"].cuda()
+        #     sync_features = feature_extractor.encode_video_with_sync(sync_video)
+        #     output["sync_features"] = sync_features.detach().cpu()
 
-            caption = data["caption"]
-            text_features = feature_extractor.encode_text(caption)
-            output["text_features"] = text_features.detach().cpu()
+        #     caption = data["caption"]
+        #     text_features = feature_extractor.encode_text(caption)
+        #     output["text_features"] = text_features.detach().cpu()
 
-            torch.save(output, this_latent_dir / f"r{local_rank}_{curr_iter}.pth")
+        #     if AVS_DATASET:
+        #         output["mask_video"] = data["mask_video"].detach().cpu()
 
-        distributed.barrier()
+        #     torch.save(output, this_latent_dir / f"r{local_rank}_{curr_iter}.pth")
+
+        # distributed.barrier()
 
         # combine the results
         if local_rank == 0:
@@ -184,6 +211,8 @@ def extract():
                 "sync_features": [],
                 "text_features": [],
             }
+            if AVS_DATASET:
+                output_data["mask_video"] = []
 
             for t in tqdm(sorted(os.listdir(this_latent_dir))):
                 data = torch.load(this_latent_dir / t, weights_only=True)
@@ -205,15 +234,23 @@ def extract():
                     output_data["clip_features"].append(data["clip_features"][bi])
                     output_data["sync_features"].append(data["sync_features"][bi])
                     output_data["text_features"].append(data["text_features"][bi])
+                    if AVS_DATASET:
+                        mv: torch.Tensor = data["mask_video"][bi]
+                        mv.mul_(0.5).add_(0.5)
+                        mv = mv[:, 0:1]
+                        output_data["mask_video"].append(mv)
 
             output_dir.mkdir(parents=True, exist_ok=True)
             output_df = pd.DataFrame(list_of_ids_and_labels)
-            output_df.to_csv(output_dir / f"vgg-{split}.tsv", sep="\t", index=False)
+            prefix = "avs" if AVS_DATASET else "vgg"
+            output_df.to_csv(
+                output_dir / f"{prefix}-{split}.tsv", sep="\t", index=False
+            )
 
             print(f"Output: {len(output_df)}")
 
             output_data = {k: torch.stack(v) for k, v in output_data.items()}
-            td.TensorDict(output_data).memmap_(output_dir / f"vgg-{split}")
+            td.TensorDict(output_data).memmap_(output_dir / f"{prefix}-{split}")
 
 
 if __name__ == "__main__":

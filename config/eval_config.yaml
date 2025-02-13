@@ -8,10 +8,13 @@ hydra:
     dir: ./output/${exp_id}
   output_subdir: eval-${now:%Y-%m-%d_%H-%M-%S}-hydra
 
+avs_train: true
+model: small_44k_avs
+
 exp_id: ${model}
 dataset: audiocaps
 duration_s: 8.0
 
 # for inference, this is the per-GPU batch size
-batch_size: 16
+batch_size: 4
 output_name: null
