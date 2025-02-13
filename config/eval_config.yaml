@@ -12,8 +12,8 @@ avs_train: true
 model: small_44k_avs
 
 exp_id: ${model}
-dataset: audiocaps
-duration_s: 8.0
+dataset: avs
+duration_s: 5.0
 
 # for inference, this is the per-GPU batch size
 batch_size: 4

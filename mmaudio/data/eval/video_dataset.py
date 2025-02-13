@@ -9,6 +9,7 @@ import torch
 from torch.utils.data.dataset import Dataset
 from torchvision.transforms import v2
 from torio.io import StreamingMediaDecoder
+from PIL import Image
 
 from mmaudio.utils.dist_utils import local_rank
 
@@ -36,19 +37,25 @@ class VideoDataset(Dataset):
         self.clip_expected_length = int(_CLIP_FPS * self.duration_sec)
         self.sync_expected_length = int(_SYNC_FPS * self.duration_sec)
 
-        self.clip_transform = v2.Compose([
-            v2.Resize((_CLIP_SIZE, _CLIP_SIZE), interpolation=v2.InterpolationMode.BICUBIC),
-            v2.ToImage(),
-            v2.ToDtype(torch.float32, scale=True),
-        ])
+        self.clip_transform = v2.Compose(
+            [
+                v2.Resize(
+                    (_CLIP_SIZE, _CLIP_SIZE), interpolation=v2.InterpolationMode.BICUBIC
+                ),
+                v2.ToImage(),
+                v2.ToDtype(torch.float32, scale=True),
+            ]
+        )
 
-        self.sync_transform = v2.Compose([
-            v2.Resize(_SYNC_SIZE, interpolation=v2.InterpolationMode.BICUBIC),
-            v2.CenterCrop(_SYNC_SIZE),
-            v2.ToImage(),
-            v2.ToDtype(torch.float32, scale=True),
-            v2.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
-        ])
+        self.sync_transform = v2.Compose(
+            [
+                v2.Resize(_SYNC_SIZE, interpolation=v2.InterpolationMode.BICUBIC),
+                v2.CenterCrop(_SYNC_SIZE),
+                v2.ToImage(),
+                v2.ToDtype(torch.float32, scale=True),
+                v2.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+            ]
+        )
 
         # to be implemented by subclasses
         self.captions = {}
@@ -58,16 +65,16 @@ class VideoDataset(Dataset):
         video_id = self.videos[idx]
         caption = self.captions[video_id]
 
-        reader = StreamingMediaDecoder(self.video_root / (video_id + '.mp4'))
+        reader = StreamingMediaDecoder(self.video_root / (video_id + ".mp4"))
         reader.add_basic_video_stream(
             frames_per_chunk=int(_CLIP_FPS * self.duration_sec),
             frame_rate=_CLIP_FPS,
-            format='rgb24',
+            format="rgb24",
         )
         reader.add_basic_video_stream(
             frames_per_chunk=int(_SYNC_FPS * self.duration_sec),
             frame_rate=_SYNC_FPS,
-            format='rgb24',
+            format="rgb24",
         )
 
         reader.fill_buffer()
@@ -76,39 +83,43 @@ class VideoDataset(Dataset):
         clip_chunk = data_chunk[0]
         sync_chunk = data_chunk[1]
         if clip_chunk is None:
-            raise RuntimeError(f'CLIP video returned None {video_id}')
+            raise RuntimeError(f"CLIP video returned None {video_id}")
         if clip_chunk.shape[0] < self.clip_expected_length:
             raise RuntimeError(
-                f'CLIP video too short {video_id}, expected {self.clip_expected_length}, got {clip_chunk.shape[0]}'
+                f"CLIP video too short {video_id}, expected {self.clip_expected_length}, got {clip_chunk.shape[0]}"
             )
 
         if sync_chunk is None:
-            raise RuntimeError(f'Sync video returned None {video_id}')
+            raise RuntimeError(f"Sync video returned None {video_id}")
         if sync_chunk.shape[0] < self.sync_expected_length:
             raise RuntimeError(
-                f'Sync video too short {video_id}, expected {self.sync_expected_length}, got {sync_chunk.shape[0]}'
+                f"Sync video too short {video_id}, expected {self.sync_expected_length}, got {sync_chunk.shape[0]}"
             )
 
         # truncate the video
-        clip_chunk = clip_chunk[:self.clip_expected_length]
+        clip_chunk = clip_chunk[: self.clip_expected_length]
         if clip_chunk.shape[0] != self.clip_expected_length:
-            raise RuntimeError(f'CLIP video wrong length {video_id}, '
-                               f'expected {self.clip_expected_length}, '
-                               f'got {clip_chunk.shape[0]}')
+            raise RuntimeError(
+                f"CLIP video wrong length {video_id}, "
+                f"expected {self.clip_expected_length}, "
+                f"got {clip_chunk.shape[0]}"
+            )
         clip_chunk = self.clip_transform(clip_chunk)
 
-        sync_chunk = sync_chunk[:self.sync_expected_length]
+        sync_chunk = sync_chunk[: self.sync_expected_length]
         if sync_chunk.shape[0] != self.sync_expected_length:
-            raise RuntimeError(f'Sync video wrong length {video_id}, '
-                               f'expected {self.sync_expected_length}, '
-                               f'got {sync_chunk.shape[0]}')
+            raise RuntimeError(
+                f"Sync video wrong length {video_id}, "
+                f"expected {self.sync_expected_length}, "
+                f"got {sync_chunk.shape[0]}"
+            )
         sync_chunk = self.sync_transform(sync_chunk)
 
         data = {
-            'name': video_id,
-            'caption': caption,
-            'clip_video': clip_chunk,
-            'sync_video': sync_chunk,
+            "name": video_id,
+            "caption": caption,
+            "clip_video": clip_chunk,
+            "sync_video": sync_chunk,
         }
 
         return data
@@ -117,7 +128,7 @@ class VideoDataset(Dataset):
         try:
             return self.sample(idx)
         except Exception as e:
-            log.error(f'Error loading video {self.videos[idx]}: {e}')
+            log.error(f"Error loading video {self.videos[idx]}: {e}")
             return None
 
     def __len__(self):
@@ -139,32 +150,36 @@ class VGGSound(VideoDataset):
 
         videos = sorted(os.listdir(self.video_root))
         if local_rank == 0:
-            log.info(f'{len(videos)} videos found in {video_root}')
+            log.info(f"{len(videos)} videos found in {video_root}")
         self.captions = {}
 
-        df = pd.read_csv(csv_path, header=None, names=['id', 'sec', 'caption',
-                                                       'split']).to_dict(orient='records')
+        df = pd.read_csv(
+            csv_path, header=None, names=["id", "sec", "caption", "split"]
+        ).to_dict(orient="records")
 
         videos_no_found = []
         for row in df:
-            if row['split'] == 'test':
-                start_sec = int(row['sec'])
-                video_id = str(row['id'])
+            if row["split"] == "test":
+                start_sec = int(row["sec"])
+                video_id = str(row["id"])
                 # this is how our videos are named
-                video_name = f'{video_id}_{start_sec:06d}'
-                if video_name + '.mp4' not in videos:
+                video_name = f"{video_id}_{start_sec:06d}"
+                if video_name + ".mp4" not in videos:
                     videos_no_found.append(video_name)
                     continue
 
-                self.captions[video_name] = row['caption']
+                self.captions[video_name] = row["caption"]
 
         if local_rank == 0:
-            log.info(f'{len(videos)} videos found in {video_root}')
-            log.info(f'{len(self.captions)} useable videos found')
+            log.info(f"{len(videos)} videos found in {video_root}")
+            log.info(f"{len(self.captions)} useable videos found")
             if videos_no_found:
-                log.info(f'{len(videos_no_found)} found in {csv_path} but not in {video_root}')
                 log.info(
-                    'A small amount is expected, as not all videos are still available on YouTube')
+                    f"{len(videos_no_found)} found in {csv_path} but not in {video_root}"
+                )
+                log.info(
+                    "A small amount is expected, as not all videos are still available on YouTube"
+                )
 
         self.videos = sorted(list(self.captions.keys()))
 
@@ -187,11 +202,138 @@ class MovieGen(VideoDataset):
         self.captions = {}
 
         for v in videos:
-            with open(self.jsonl_root / (v + '.jsonl')) as f:
+            with open(self.jsonl_root / (v + ".jsonl")) as f:
                 data = json.load(f)
-                self.captions[v] = data['audio_prompt']
+                self.captions[v] = data["audio_prompt"]
 
         if local_rank == 0:
-            log.info(f'{len(videos)} videos found in {video_root}')
+            log.info(f"{len(videos)} videos found in {video_root}")
 
         self.videos = videos
+
+
+class AVSSemantic(VideoDataset):
+    _EXPANSION_PIX = 5
+
+    def __init__(
+        self,
+        video_root: Union[str, Path],
+        csv_path: Union[str, Path],
+        mask_root: Union[str, Path],
+        *,
+        duration_sec: float = 5,
+    ):
+        super().__init__(video_root, duration_sec=duration_sec)
+        self.csv_path = Path(csv_path)
+        self.mask_root = Path(mask_root)
+        videos = sorted(list(Path(video_root).rglob("*.mp4")))
+        videos = [f"{v.parent.name}/{v.name}" for v in videos]  # type: ignore
+        if local_rank == 0:
+            log.info(f"{len(self.videos)} videos found in {video_root}")
+
+        df = pd.read_csv(
+            csv_path, header=None, names=["name", "start", "category", "split"]
+        ).to_dict(orient="records")
+
+        videos_no_found = []
+        for row in df:
+            if row["split"] == "test":
+                video_name = row["name"]
+                if row["category"] + "/" + video_name + ".mp4" not in videos:
+                    videos_no_found.append(video_name)
+                    continue
+
+                self.captions[f"{row['category']}/{video_name}"] = row["category"]
+
+        if local_rank == 0:
+            log.info(f"{len(videos)} videos found in {video_root}")
+            log.info(f"{len(self.captions)} useable videos found")
+            if videos_no_found:
+                log.info(
+                    f"{len(videos_no_found)} found in {csv_path} but not in {video_root}"
+                )
+                log.info(
+                    "A small amount is expected, as not all videos are still available on YouTube"
+                )
+        self.videos = sorted(list(self.captions.keys()))
+
+        self.mask_video_transform = v2.Compose(
+            [
+                v2.UniformTemporalSubsample(self.sync_expected_length),
+                v2.Resize(_SYNC_SIZE, interpolation=v2.InterpolationMode.BICUBIC),
+                v2.CenterCrop(_SYNC_SIZE),
+            ]
+        )
+        self.to_tensor_transform = v2.Compose(
+            [v2.ToImage(), v2.ToDtype(torch.float32, scale=True)]
+        )
+
+    def __getitem__(self, idx):
+        data = super().__getitem__(idx)
+        if data is None:  # error loading video
+            return None
+        try:
+            video_id = data["name"]
+            mask_chunk = self.get_extended_masks(self.mask_root / video_id)
+            mask_chunk = self.mask_video_transform(mask_chunk)
+            mask_chunk = mask_chunk[: self.sync_expected_length]
+            if mask_chunk.shape[0] != self.sync_expected_length:
+                raise RuntimeError(
+                    f"Mask video wrong length {video_id}, "
+                    f"expected {self.sync_expected_length}, "
+                    f"got {mask_chunk.shape[0]}"
+                )
+            mask_chunk = self.mask_video_transform(mask_chunk)
+            data["mask_video"] = mask_chunk
+            return data
+        except Exception as e:
+            log.error(f"Error loading video {self.videos[idx]}: {e}")
+            return None
+
+    def get_extended_masks(self, sample_dir: Path) -> torch.Tensor:
+        """Get extended masks for the sample.
+
+        Args:
+            item (dict): Single sample.
+
+        Returns:
+            torch.Tensor: Extended masks.
+        """
+        mask_dir = sample_dir / "extended_mask"
+        if not mask_dir.exists() and not mask_dir.is_file():
+            raise FileNotFoundError(f"Extended mask dir not found: {mask_dir}")
+
+        ret = []
+        for mask_file in sorted(
+            mask_dir.glob("*.png"), key=lambda x: int(x.stem.split("_")[-1])
+        ):
+            ret.append(self._load_png_to_tensor(mask_file.as_posix(), convert_type="L"))
+        mask_video = torch.stack(ret, dim=0)  # (T, C, H, W)
+        return mask_video
+
+    def _load_png_to_tensor(
+        self, image_path: str, convert_type: str = "L", expand_mask: bool = False
+    ) -> torch.Tensor:
+        image = Image.open(image_path).convert(convert_type)
+        image_t = self.to_tensor_transform(image)
+        if expand_mask:
+            # Convert to binary mask
+            binary_mask = image_t > 0.5
+            if not torch.any(binary_mask):
+                return image_t
+            if binary_mask.ndim == 3:
+                binary_mask = binary_mask.squeeze(0)
+            # Find bounding box
+            non_zero_indices = torch.nonzero(binary_mask)
+            min_y, min_x = torch.min(non_zero_indices, dim=0)[0]
+            max_y, max_x = torch.max(non_zero_indices, dim=0)[0]
+            # Expand bounding box by _EXPANSION_PIX pixels
+            min_y = max(min_y - self._EXPANSION_PIX, 0)
+            min_x = max(min_x - self._EXPANSION_PIX, 0)
+            max_y = min(max_y + self._EXPANSION_PIX, image_t.shape[1] - 1)
+            max_x = min(max_x + self._EXPANSION_PIX, image_t.shape[2] - 1)
+            # Create new mask with expanded bounding box
+            image_t = torch.zeros_like(image_t)
+            image_t[:, min_y : max_y + 1, min_x : max_x + 1] = 1
+
+        return image_t

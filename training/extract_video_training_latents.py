@@ -146,17 +146,17 @@ def extract():
 
     # cuda setup
     torch.cuda.set_device(local_rank)
-    # feature_extractor = (
-    #     FeaturesUtils(
-    #         tod_vae_ckpt=vae_path,
-    #         enable_conditions=True,
-    #         bigvgan_vocoder_ckpt=bigvgan_path,
-    #         synchformer_ckpt=synchformer_ckpt,
-    #         mode=mode,
-    #     )
-    #     .eval()
-    #     .cuda()
-    # )
+    feature_extractor = (
+        FeaturesUtils(
+            tod_vae_ckpt=vae_path,
+            enable_conditions=True,
+            bigvgan_vocoder_ckpt=bigvgan_path,
+            synchformer_ckpt=synchformer_ckpt,
+            mode=mode,
+        )
+        .eval()
+        .cuda()
+    )
 
     for split in data_cfg.keys():
         print(f"Extracting latents for the {split} split")
@@ -164,39 +164,39 @@ def extract():
         this_latent_dir.mkdir(parents=True, exist_ok=True)
 
         # setup datasets
-        # dataset, loader = setup_dataset(split)
-        # log.info(f"Number of samples: {len(dataset)}")
-        # log.info(f"Number of batches: {len(loader)}")
+        dataset, loader = setup_dataset(split)
+        log.info(f"Number of samples: {len(dataset)}")
+        log.info(f"Number of batches: {len(loader)}")
 
-        # for curr_iter, data in enumerate(tqdm(loader)):
-        #     output = {
-        #         "id": data["id"],
-        #         "caption": data["caption"],
-        #     }
+        for curr_iter, data in enumerate(tqdm(loader)):
+            output = {
+                "id": data["id"],
+                "caption": data["caption"],
+            }
 
-        #     audio = data["audio"].cuda()
-        #     dist = feature_extractor.encode_audio(audio)
-        #     output["mean"] = dist.mean.detach().cpu().transpose(1, 2)
-        #     output["std"] = dist.std.detach().cpu().transpose(1, 2)
+            audio = data["audio"].cuda()
+            dist = feature_extractor.encode_audio(audio)
+            output["mean"] = dist.mean.detach().cpu().transpose(1, 2)
+            output["std"] = dist.std.detach().cpu().transpose(1, 2)
 
-        #     clip_video = data["clip_video"].cuda()
-        #     clip_features = feature_extractor.encode_video_with_clip(clip_video)
-        #     output["clip_features"] = clip_features.detach().cpu()
+            clip_video = data["clip_video"].cuda()
+            clip_features = feature_extractor.encode_video_with_clip(clip_video)
+            output["clip_features"] = clip_features.detach().cpu()
 
-        #     sync_video = data["sync_video"].cuda()
-        #     sync_features = feature_extractor.encode_video_with_sync(sync_video)
-        #     output["sync_features"] = sync_features.detach().cpu()
+            sync_video = data["sync_video"].cuda()
+            sync_features = feature_extractor.encode_video_with_sync(sync_video)
+            output["sync_features"] = sync_features.detach().cpu()
 
-        #     caption = data["caption"]
-        #     text_features = feature_extractor.encode_text(caption)
-        #     output["text_features"] = text_features.detach().cpu()
+            caption = data["caption"]
+            text_features = feature_extractor.encode_text(caption)
+            output["text_features"] = text_features.detach().cpu()
 
-        #     if AVS_DATASET:
-        #         output["mask_video"] = data["mask_video"].detach().cpu()
+            if AVS_DATASET:
+                output["mask_video"] = data["mask_video"].detach().cpu()
 
-        #     torch.save(output, this_latent_dir / f"r{local_rank}_{curr_iter}.pth")
+            torch.save(output, this_latent_dir / f"r{local_rank}_{curr_iter}.pth")
 
-        # distributed.barrier()
+        distributed.barrier()
 
         # combine the results
         if local_rank == 0:

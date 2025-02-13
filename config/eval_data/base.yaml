@@ -15,8 +15,15 @@ AudioCaps_full:
 MovieGen:
   video_path: ../data/MovieGen/MovieGenAudioBenchSfx/video_with_audio
   jsonl_path: ../data/MovieGen/MovieGenAudioBenchSfx/metadata
-  
+
 VGGSound:
   video_path: ../data/test-videos
   # from the officially released csv file
   csv_path: ../data/vggsound.csv
+
+ExtractedAVS_test:
+
+AVSSemantic:
+  video_path: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos/test
+  mask_root: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/gt_masks/test
+  csv_path: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_meta_data.csv
