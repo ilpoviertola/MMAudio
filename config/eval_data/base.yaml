@@ -27,3 +27,8 @@ AVSSemantic:
   video_path: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos/test
   mask_root: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/gt_masks/test
   csv_path: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_meta_data.csv
+
+MultiSource:
+  video_path: /home/hdd/ilpo/datasets/multisource_evaluations
+  csv_path: /home/hdd/ilpo/datasets/multisource_evaluations/metadata.csv
+  mask_root: /home/hdd/ilpo/datasets/multisource_evaluations

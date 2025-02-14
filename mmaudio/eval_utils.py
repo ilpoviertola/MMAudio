@@ -121,7 +121,10 @@ def generate(
     device = feature_utils.device
     dtype = feature_utils.dtype
 
-    bs = len(text)
+    if text is not None:
+        bs = len(text)
+    elif mask_video is not None:
+        bs = mask_video.shape[0]
     if clip_video is not None:
         clip_video = clip_video.to(device, dtype, non_blocking=True)
         clip_features = feature_utils.encode_video_with_clip(

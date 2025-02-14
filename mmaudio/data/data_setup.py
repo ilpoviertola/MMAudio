@@ -9,7 +9,7 @@ from torch.utils.data.dataloader import default_collate
 from torch.utils.data.distributed import DistributedSampler
 
 from mmaudio.data.eval.audiocaps import AudioCapsData
-from mmaudio.data.eval.video_dataset import MovieGen, VGGSound, AVSSemantic
+from mmaudio.data.eval.video_dataset import MovieGen, VGGSound, AVSSemantic, MultiSource
 from mmaudio.data.extracted_audio import ExtractedAudio
 from mmaudio.data.extracted_vgg import ExtractedVGG
 from mmaudio.data.extracted_avs import ExtractedAVS
@@ -182,6 +182,13 @@ def setup_eval_dataset(
             cfg.eval_data.AVSSemantic.video_path,
             cfg.eval_data.AVSSemantic.csv_path,
             cfg.eval_data.AVSSemantic.mask_root,
+            duration_sec=cfg.duration_s,
+        )
+    elif dataset_name.startswith("multisource"):
+        dataset = MultiSource(
+            cfg.eval_data.MultiSource.video_path,
+            cfg.eval_data.MultiSource.csv_path,
+            cfg.eval_data.MultiSource.mask_root,
             duration_sec=cfg.duration_s,
         )
     else:

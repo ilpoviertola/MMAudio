@@ -337,3 +337,153 @@ class AVSSemantic(VideoDataset):
             image_t[:, min_y : max_y + 1, min_x : max_x + 1] = 1
 
         return image_t
+
+
+class MultiSource(VideoDataset):
+    _EXPANSION_PIX = 5
+
+    def __init__(
+        self,
+        video_root: Union[str, Path],
+        csv_path: Union[str, Path],
+        mask_root: Union[str, Path],
+        use_captions: bool = False,
+        *,
+        duration_sec: float = 5,
+    ):
+        super().__init__(video_root, duration_sec=duration_sec)
+        self.csv_path = Path(csv_path)
+        self.mask_root = Path(mask_root)
+        self.use_captions = use_captions
+        videos = sorted(list(Path(video_root).rglob("*.mp4")))
+        videos = [f"{v.parent.name}/{v.name}" for v in videos]  # type: ignore
+        if local_rank == 0:
+            log.info(f"{len(self.videos)} videos found in {video_root}")
+
+        df = pd.read_csv(
+            csv_path,
+            header=None,
+            names=["video_id", "obj_id", "semantic_label", "audio_action_label"],
+        ).to_dict(orient="records")
+
+        videos_no_found = []
+        videos_found = []
+        self.captions: dict[str, list[str]] = {}
+        for row in df:
+            video_name = row["video_id"]
+            if video_name + "/" + video_name + ".mp4" not in videos:
+                videos_no_found.append(video_name)
+                continue
+
+            video_id = f"{video_name}/{video_name}"
+            if video_id not in self.captions:
+                self.captions[video_id] = [
+                    f"{row['obj_id']}: {row['semantic_label']}, {row['audio_action_label']}"
+                ]
+            else:
+                self.captions[video_id].append(
+                    f"{row['obj_id']}: {row['semantic_label']}, {row['audio_action_label']}"
+                )
+            videos_found.append(video_id)
+
+        if local_rank == 0:
+            log.info(f"{len(videos)} videos found in {video_root}")
+            log.info(f"{len(self.captions)} useable videos found")
+            if videos_no_found:
+                log.info(
+                    f"{len(videos_no_found)} found in {csv_path} but not in {video_root}"
+                )
+                log.info(
+                    "A small amount is expected, as not all videos are still available on YouTube"
+                )
+        self.videos = sorted(videos_found)
+
+        self.mask_video_transform = v2.Compose(
+            [
+                v2.UniformTemporalSubsample(self.sync_expected_length),
+                v2.Resize(_SYNC_SIZE, interpolation=v2.InterpolationMode.BICUBIC),
+                v2.CenterCrop(_SYNC_SIZE),
+            ]
+        )
+        self.to_tensor_transform = v2.Compose(
+            [v2.ToImage(), v2.ToDtype(torch.float32, scale=True)]
+        )
+
+    def __getitem__(self, idx):
+        data = super().__getitem__(idx)
+        if data is None:  # error loading video
+            return None
+        try:
+            if isinstance(data["caption"], list):
+                caption = data["caption"][0]
+                self.captions[data["name"]].remove(caption)
+
+            if not self.use_captions:
+                del data["caption"]
+            else:
+                data["caption"] = ":".join(caption.split(":")[1:])  # remove obj_id
+
+            obj_id = f"obj{caption.split(':')[0]}"
+            video_id = data["name"].split("/")[0]
+            data["name"] = f"{data['name']}_{obj_id}"
+            mask_chunk = self.get_extended_masks(self.mask_root / video_id, obj_id)
+            mask_chunk = self.mask_video_transform(mask_chunk)
+            mask_chunk = mask_chunk[: self.sync_expected_length]
+            if mask_chunk.shape[0] != self.sync_expected_length:
+                raise RuntimeError(
+                    f"Mask video wrong length {video_id}, "
+                    f"expected {self.sync_expected_length}, "
+                    f"got {mask_chunk.shape[0]}"
+                )
+            mask_chunk = self.mask_video_transform(mask_chunk)
+            data["mask_video"] = mask_chunk
+            return data
+        except Exception as e:
+            log.error(f"Error loading video {self.videos[idx]}: {e}")
+            return None
+
+    def get_extended_masks(self, sample_dir: Path, obj_id: str) -> torch.Tensor:
+        """Get extended masks for the sample.
+
+        Args:
+            item (dict): Single sample.
+
+        Returns:
+            torch.Tensor: Extended masks.
+        """
+        mask_dir = sample_dir / obj_id
+        if not mask_dir.exists() and not mask_dir.is_file():
+            raise FileNotFoundError(f"Extended mask dir not found: {mask_dir}")
+
+        ret = []
+        for mask_file in sorted(mask_dir.glob("*.png"), key=lambda x: int(x.stem)):
+            ret.append(self._load_png_to_tensor(mask_file.as_posix(), convert_type="L"))
+        mask_video = torch.stack(ret, dim=0)  # (T, C, H, W)
+        return mask_video
+
+    def _load_png_to_tensor(
+        self, image_path: str, convert_type: str = "L", expand_mask: bool = False
+    ) -> torch.Tensor:
+        image = Image.open(image_path).convert(convert_type)
+        image_t = self.to_tensor_transform(image)
+        if expand_mask:
+            # Convert to binary mask
+            binary_mask = image_t > 0.5
+            if not torch.any(binary_mask):
+                return image_t
+            if binary_mask.ndim == 3:
+                binary_mask = binary_mask.squeeze(0)
+            # Find bounding box
+            non_zero_indices = torch.nonzero(binary_mask)
+            min_y, min_x = torch.min(non_zero_indices, dim=0)[0]
+            max_y, max_x = torch.max(non_zero_indices, dim=0)[0]
+            # Expand bounding box by _EXPANSION_PIX pixels
+            min_y = max(min_y - self._EXPANSION_PIX, 0)
+            min_x = max(min_x - self._EXPANSION_PIX, 0)
+            max_y = min(max_y + self._EXPANSION_PIX, image_t.shape[1] - 1)
+            max_x = min(max_x + self._EXPANSION_PIX, image_t.shape[2] - 1)
+            # Create new mask with expanded bounding box
+            image_t = torch.zeros_like(image_t)
+            image_t[:, min_y : max_y + 1, min_x : max_x + 1] = 1
+
+        return image_t
