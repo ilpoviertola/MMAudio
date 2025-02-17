@@ -46,7 +46,7 @@ NOTE: 352800 (8*44100) is not divisible by (STFT hop size * VAE downsampling rat
 # mode = "44k"
 
 # for the AVS dataset
-AVS_DATASET = True
+AVS_DATASET = False
 SAMPLING_RATE = 44100
 DURATION_SEC = 5.0
 NUM_SAMPLES = 221184
@@ -71,18 +71,18 @@ data_cfg = {
     #     "normalize_audio": True,
     # },
     "train": {
-        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos/train",
-        "subset_name": "./sets/avs-train.tsv",
+        "root": "/home/hdd/ilpo/datasets/vggsound/raw_data/h264_video_25fps_256side_44100hz_aac",
+        "subset_name": "./sets/vgg3-train.tsv",
         "normalize_audio": True,
     },
     "test": {
-        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos/test",
-        "subset_name": "./sets/avs-test.tsv",
+        "root": "/home/hdd/ilpo/datasets/vggsound/raw_data/h264_video_25fps_256side_44100hz_aac",
+        "subset_name": "./sets/vgg3-test.tsv",
         "normalize_audio": False,
     },
     "val": {
-        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos/val",
-        "subset_name": "./sets/avs-val.tsv",
+        "root": "/home/hdd/ilpo/datasets/vggsound/raw_data/h264_video_25fps_256side_44100hz_aac",
+        "subset_name": "./sets/vgg3-val.tsv",
         "normalize_audio": False,
     },
 }
@@ -98,6 +98,7 @@ def setup_dataset(split: str):
     if not AVS_DATASET:
         dataset = VGGSound(
             data_cfg[split]["root"],
+            mask_root="/home/hdd/ilpo/datasets/vggsound/masks",
             tsv_path=data_cfg[split]["subset_name"],
             sample_rate=SAMPLING_RATE,
             duration_sec=DURATION_SEC,
@@ -105,7 +106,7 @@ def setup_dataset(split: str):
             normalize_audio=data_cfg[split]["normalize_audio"],
         )
     else:
-        dataset = AVS(
+        dataset = AVS(  # type: ignore
             data_cfg[split]["root"],
             tsv_path=data_cfg[split]["subset_name"],
             sample_rate=SAMPLING_RATE,
@@ -191,8 +192,7 @@ def extract():
             text_features = feature_extractor.encode_text(caption)
             output["text_features"] = text_features.detach().cpu()
 
-            if AVS_DATASET:
-                output["mask_video"] = data["mask_video"].detach().cpu()
+            output["mask_video"] = data["mask_video"].detach().cpu()
 
             torch.save(output, this_latent_dir / f"r{local_rank}_{curr_iter}.pth")
 
@@ -210,9 +210,8 @@ def extract():
                 "clip_features": [],
                 "sync_features": [],
                 "text_features": [],
+                "mask_video": [],
             }
-            if AVS_DATASET:
-                output_data["mask_video"] = []
 
             for t in tqdm(sorted(os.listdir(this_latent_dir))):
                 data = torch.load(this_latent_dir / t, weights_only=True)
@@ -234,11 +233,7 @@ def extract():
                     output_data["clip_features"].append(data["clip_features"][bi])
                     output_data["sync_features"].append(data["sync_features"][bi])
                     output_data["text_features"].append(data["text_features"][bi])
-                    if AVS_DATASET:
-                        mv: torch.Tensor = data["mask_video"][bi]
-                        mv.mul_(0.5).add_(0.5)
-                        mv = mv[:, 0:1]
-                        output_data["mask_video"].append(mv)
+                    output_data["mask_video"].append(data["mask_video"][bi])
 
             output_dir.mkdir(parents=True, exist_ok=True)
             output_df = pd.DataFrame(list_of_ids_and_labels)

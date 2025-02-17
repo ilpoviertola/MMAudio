@@ -360,19 +360,21 @@ class MMAudio(nn.Module):
         global_c = self.global_cond_mlp(clip_f_c + text_f_c)  # (B, D)
 
         global_c = self.t_embed(t).unsqueeze(1) + global_c.unsqueeze(1)  # (B, D)
-        extended_c = global_c + (sync_f * mask_f)
+        extended_c = global_c + sync_f
 
         for block in self.joint_blocks:
-            latent, clip_f, text_f = block(
+            latent, clip_f, text_f, mask_f = block(
                 latent,
                 clip_f,
                 text_f,
+                mask_f,
                 global_c,
                 extended_c,
                 self.latent_rot,
                 self.clip_rot,
             )  # (B, N, D)
 
+        # extended_c = extended_c + mask_f
         for block in self.fused_blocks:
             latent = block(latent, extended_c, self.latent_rot)
 

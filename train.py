@@ -1,9 +1,11 @@
+import os
 import logging
 import math
 import random
 from datetime import timedelta
 from pathlib import Path
 
+import debugpy
 import hydra
 import numpy as np
 import torch
@@ -211,4 +213,9 @@ def train(cfg: DictConfig):
 
 
 if __name__ == "__main__":
+    # rank = int(os.getenv("RANK", "-1"))
+    # port = rank + 5678
+    # print(port)
+    # debugpy.listen(("127.0.0.1", port))
+    # debugpy.wait_for_client()
     train()
