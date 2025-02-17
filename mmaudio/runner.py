@@ -71,6 +71,7 @@ class Runner:
                 latent_mean=latent_mean,
                 latent_std=latent_std,
                 empty_string_feat=empty_string_feat,
+                **cfg.controlnet_cfg,
             ).cuda(),
             device_ids=[local_rank],
             broadcast_buffers=False,
@@ -132,6 +133,7 @@ class Runner:
         self.log_normal_sampling_mean = cfg.sampling.mean
         self.log_normal_sampling_scale = cfg.sampling.scale
         self.null_condition_probability = cfg.null_condition_probability
+        self.null_text_condition_probability = cfg.null_text_condition_probability
         self.cfg_strength = cfg.cfg_strength
 
         # setting up logging
@@ -283,7 +285,7 @@ class Runner:
         mask_f[null_video] = self.network.module.empty_mask_feat
 
         samples = torch.rand(bs, device=x1.device, generator=self.rng)
-        null_text = samples < self.null_condition_probability
+        null_text = samples < self.null_text_condition_probability
         text_f[null_text] = self.network.module.empty_string_feat
 
         pred_v = self.network(xt, clip_f, sync_f, text_f, mask_f, t)
@@ -323,7 +325,7 @@ class Runner:
         mask_f[null_video] = self.network.module.empty_mask_feat
 
         samples = torch.rand(bs, device=x1.device, generator=self.rng)
-        null_text = samples < self.null_condition_probability
+        null_text = samples < self.null_text_condition_probability
         text_f[null_text] = self.network.module.empty_string_feat
 
         pred_v = self.network(xt, clip_f, sync_f, text_f, mask_f, t)

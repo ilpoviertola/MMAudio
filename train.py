@@ -211,4 +211,11 @@ def train(cfg: DictConfig):
 
 
 if __name__ == "__main__":
+    # import os
+    # import debugpy
+
+    # rank = int(os.getenv("RANK", "-1"))
+    # port = rank + 5678
+    # debugpy.listen(("127.0.0.1", port))
+    # debugpy.wait_for_client()
     train()

@@ -12,6 +12,10 @@ from mmaudio.model.embeddings import TimestepEmbedder
 from mmaudio.model.low_level import MLP, ChannelLastConv1d, ConvMLP
 from mmaudio.model.transformer_layers import FinalBlock, JointBlock, MMDitSingleBlock
 from mmaudio.model.utils.mask_video_encoder import MaskVideoEncoder
+from mmaudio.model.controlnet import (
+    DiTControlNetForLatentBlock,
+    ControlNetAggregationSchema,
+)
 
 log = logging.getLogger()
 
@@ -50,6 +54,20 @@ class MMAudio(nn.Module):
         empty_string_feat: Optional[torch.Tensor] = None,
         v2: bool = False,
         masks_encoded: bool = False,
+        use_controlnet: bool = True,
+        # controlnet options
+        for_joint_blocks: bool = False,
+        for_fused_blocks: bool = False,
+        for_latent: bool = False,
+        sum_pre_dit_block: bool = False,
+        sum_post_dit_block: bool = False,
+        # controlnet block options
+        add_mask_f_to_latent: bool = False,
+        add_mask_f_to_extended_c: bool = False,
+        add_mask_f_to_global_c: bool = False,
+        use_preprocess_conv: bool = False,
+        use_extended_c: bool = False,
+        use_global_c: bool = False,
     ) -> None:
         super().__init__()
 
@@ -188,11 +206,73 @@ class MMAudio(nn.Module):
         self.initialize_weights()
         self.initialize_rotations()
 
-        if not masks_encoded:
-            self.mask_enc = MaskVideoEncoder(depth=2, num_heads=8, aggregate_space=True)
-            self.initalize_mask_enc_weights()
+        self.use_controlnet = use_controlnet
+        if use_controlnet:
+            self.cn_agg_schema = ControlNetAggregationSchema(
+                for_joint_blocks=for_joint_blocks,
+                for_fused_blocks=for_fused_blocks,
+                for_latent=for_latent,
+                sum_pre_dit_block=sum_pre_dit_block,
+                sum_post_dit_block=sum_post_dit_block,
+            )
+            log.info("Using ControlNet for the latent blocks")
+            # Step 1: Freeze the original model branch
+            trainable_params_start = sum(
+                p.numel() for p in self.parameters() if p.requires_grad
+            )
+            log.info("Freezing the original model branch")
+            # hack incoming
+            self.use_controlnet = False
+            self.requires_grad_(False)
+            self.eval()
+            self.use_controlnet = True
+            # hack ends
+
+            # Step 2: Initialize the mask encoder
+            log.info("Initializing the mask encoder")
+            if not masks_encoded:
+                self.mask_enc = MaskVideoEncoder(
+                    depth=2, num_heads=8, aggregate_space=True
+                )
+                self.initalize_mask_enc_weights()
+            else:
+                self.mask_enc = nn.Identity()  # type: ignore
+
+            # Step 3: Initialize the ControlNet
+            self.controlnet = DiTControlNetForLatentBlock(
+                hidden_dim=hidden_dim,
+                depth=(depth - fused_depth),
+                num_heads=num_heads,
+                mlp_ratio=mlp_ratio,
+                add_mask_f_to_latent=add_mask_f_to_latent,
+                add_mask_f_to_extended_c=add_mask_f_to_extended_c,
+                add_mask_f_to_global_c=add_mask_f_to_global_c,
+                use_prepocess_conv=use_preprocess_conv,
+                use_extended_c=use_extended_c,
+                use_global_c=use_global_c,
+            )
+            trainable_params_end = sum(
+                p.numel() for p in self.parameters() if p.requires_grad
+            )
+            log.info(
+                f"Trainable params compared to full model: {trainable_params_end / trainable_params_start * 100:.2f}%"
+            )
+
+    def requires_grad_(self, requires_grad: bool = True) -> "MMAudio":
+        if self.use_controlnet:
+            self.mask_enc.requires_grad_(requires_grad)
+            self.controlnet.requires_grad_(requires_grad)
+            return self
         else:
-            self.mask_enc = nn.Identity()  # type: ignore
+            return super().requires_grad_(requires_grad)
+
+    def train(self, mode=True):
+        if self.use_controlnet:
+            self.mask_enc.train(mode)
+            self.controlnet.train(mode)
+            return self
+        else:
+            return super().train(mode)
 
     def initialize_rotations(self):
         base_freq = 1.0
@@ -339,6 +419,18 @@ class MMAudio(nn.Module):
             text_f_c=text_f_c,
         )
 
+    def process_controlnet(
+        self,
+        latent: torch.Tensor,
+        mask_f: torch.Tensor,
+        extended_c: torch.Tensor,
+        global_c: torch.Tensor,
+    ) -> list[torch.Tensor]:
+        cn_hidden_states = self.controlnet(
+            latent, mask_f, extended_c, global_c, self.latent_rot
+        )
+        return cn_hidden_states
+
     def predict_flow(
         self, latent: torch.Tensor, t: torch.Tensor, conditions: PreprocessedConditions
     ) -> torch.Tensor:
@@ -360,9 +452,21 @@ class MMAudio(nn.Module):
         global_c = self.global_cond_mlp(clip_f_c + text_f_c)  # (B, D)
 
         global_c = self.t_embed(t).unsqueeze(1) + global_c.unsqueeze(1)  # (B, D)
-        extended_c = global_c + (sync_f * mask_f)
+        extended_c = global_c + sync_f
 
-        for block in self.joint_blocks:
+        if self.use_controlnet:
+            cn_hidden_states = self.process_controlnet(
+                latent, mask_f, extended_c, global_c
+            )
+        # cn_hidden_states = self.controlnet(latent, mask_f, extended_c, self.latent_rot)
+
+        for i, block in enumerate(self.joint_blocks):
+            if (
+                self.cn_agg_schema.for_joint_blocks
+                and self.cn_agg_schema.sum_pre_dit_block
+                and i < len(cn_hidden_states)
+            ):
+                latent = cn_hidden_states[i] + latent
             latent, clip_f, text_f = block(
                 latent,
                 clip_f,
@@ -372,6 +476,12 @@ class MMAudio(nn.Module):
                 self.latent_rot,
                 self.clip_rot,
             )  # (B, N, D)
+            if (
+                self.cn_agg_schema.for_joint_blocks
+                and self.cn_agg_schema.sum_post_dit_block
+                and i < len(cn_hidden_states)
+            ):
+                latent = cn_hidden_states[i] + latent
 
         for block in self.fused_blocks:
             latent = block(latent, extended_c, self.latent_rot)
