@@ -1,0 +1,62 @@
+defaults:
+  - base_config
+  - override data: base
+  - override hydra/job_logging: custom
+  - _self_
+
+hydra:
+  run:
+    dir: ./output/${exp_id}
+  output_subdir: train-${now:%Y-%m-%d_%H-%M-%S}-hydra
+
+ema:
+  start: 0
+
+exp_id: controlnet_small-44k_m-to-gc_sum-pre_no-preconv
+model: small_44k_avs
+mini_train: False
+example_train: False
+avs_train: True
+weights: weights/mmaudio_small_44k.pth
+
+log_text_interval: 20
+log_extra_interval: 500
+val_interval: 500
+eval_interval: 200_000
+save_eval_interval: 400_000
+save_weights_interval: 500
+save_checkpoint_interval: 500
+save_copy_iterations: []
+
+num_workers: 10
+batch_size: 32
+eval_batch_size: 8 # per-GPU
+
+num_iterations: 100_000
+learning_rate: 1.0e-5
+linear_warmup_steps: 100
+
+lr_schedule: step
+lr_schedule_steps: [80_000, 90_000]
+lr_schedule_gamma: 0.1
+
+clip_grad_norm: 1.0
+weight_decay: 1.0e-6
+
+# increases ControlNet’s ability to directly recognize semantics in the cond
+null_text_condition_probability: 0.5
+
+controlnet_cfg:
+  # schema
+  add_mask_f_to_latent: 0
+  use_extended_c: 0
+  use_global_c: 1
+  add_mask_f_to_extended_c: 0
+  add_mask_f_to_global_c: 1
+  use_preprocess_conv: 0
+  # aggregation
+  for_joint_blocks: 1
+  for_fused_blocks: 0
+  for_latent: 1
+  sum_pre_dit_block: 1
+  sum_post_dit_block: 0
