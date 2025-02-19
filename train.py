@@ -165,7 +165,7 @@ def train(cfg: DictConfig):
                     save_eval = (curr_iter + 1) % cfg.save_eval_interval == 0
                     train_rng_snapshot = trainer.rng.graphsafe_get_state()
                     trainer.rng.graphsafe_set_state(eval_rng_clone)
-                    info_if_rank_zero(log, f"Iteration {curr_iter}: validating")
+                    info_if_rank_zero(log, f"Iteration {curr_iter}: evaluating")
                     for data in eval_loader:
                         audio_path = trainer.inference_pass(
                             data, curr_iter, val_cfg, save_eval=save_eval

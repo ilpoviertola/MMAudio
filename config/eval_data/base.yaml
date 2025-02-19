@@ -21,8 +21,6 @@ VGGSound:
   # from the officially released csv file
   csv_path: ../data/vggsound.csv
 
-ExtractedAVS_test:
-
 AVSSemantic:
   video_path: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos/test
   mask_root: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/gt_masks/test

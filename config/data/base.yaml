@@ -60,21 +60,29 @@ Clotho:
   tsv: ../data/v1-16-memmap/clotho.tsv
   memmap_dir: ../data/v1-16-memmap/clotho
 
+AVS:
+  root: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/all_videos_flat_structure
+  subset_name: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap/avs-train.tsv
+  fps: 30
+  height: 360
+  width: 640
+  sample_duration_sec: 5.0
+
 ExtractedAVS:
   tsv: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap/avs-train.tsv
   memmap_dir: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap_with_maskvideo/avs-train
 
 ExtractedAVS_val:
   tag: val
-  gt_cache: null
+  gt_cache: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/val_eval_cache
   output_subdir: val
   tsv: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap/avs-val.tsv
   memmap_dir: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap_with_maskvideo/avs-val
 
 ExtractedAVS_test:
   tag: test
-  gt_cache: null
-  output_subdir: null
+  gt_cache: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/test_eval_cache
+  output_subdir: test
   tsv: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap/avs-test.tsv
   memmap_dir: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap_with_maskvideo/avs-test
 

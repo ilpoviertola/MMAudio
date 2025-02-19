@@ -139,7 +139,7 @@ class Runner:
         # setting up logging
         self.log = log
         self.run_path = Path(run_path)
-        vgg_cfg = cfg.data.VGGSound
+        vgg_cfg = cfg.data.AVS
         if for_training:
             self.val_video_joiner = VideoJoiner(
                 vgg_cfg.root,
@@ -584,7 +584,7 @@ class Runner:
                     output_path=audio_dir / "cache",
                     device="cuda",
                     batch_size=32,
-                    audio_length=8,
+                    audio_length=5,
                 )
                 output_metrics = evaluate(
                     gt_audio_cache=Path(data_cfg.gt_cache),

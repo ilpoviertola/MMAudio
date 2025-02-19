@@ -18,3 +18,24 @@ duration_s: 5.0
 # for inference, this is the per-GPU batch size
 batch_size: 4
 output_name: null
+
+data_dim:
+  latent_seq_len: 216
+  clip_seq_len: 40
+  sync_seq_len: 112
+  text_seq_len: 77
+  clip_dim: 1024
+  sync_dim: 768
+  text_dim: 1024
+
+# increases ControlNet’s ability to directly recognize semantics in the cond
+null_text_condition_probability: 0.5
+
+controlnet_cfg:
+  use_controlnet: True
+  for_joint_blocks: True
+  for_latent: True
+  sum_pre_dit_block: True
+  add_mask_f_to_latent: True
+  use_preprocess_conv: False
+  use_extended_c: True
