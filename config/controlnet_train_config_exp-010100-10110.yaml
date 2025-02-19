@@ -22,22 +22,22 @@ weights: weights/mmaudio_small_44k.pth
 log_text_interval: 20
 log_extra_interval: 500
 val_interval: 500
-eval_interval: 200_000
-save_eval_interval: 400_000
-save_weights_interval: 500
-save_checkpoint_interval: 500
+eval_interval: 7_000
+save_eval_interval: 14_000
+save_weights_interval: 3_000
+save_checkpoint_interval: 3_000
 save_copy_iterations: []
 
 num_workers: 10
 batch_size: 32
 eval_batch_size: 8 # per-GPU
 
-num_iterations: 100_000
+num_iterations: 70_000
 learning_rate: 1.0e-5
 linear_warmup_steps: 100
 
 lr_schedule: step
-lr_schedule_steps: [80_000, 90_000]
+lr_schedule_steps: [60_000, 65_000]
 lr_schedule_gamma: 0.1
 
 clip_grad_norm: 1.0

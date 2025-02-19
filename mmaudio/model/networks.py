@@ -458,6 +458,8 @@ class MMAudio(nn.Module):
             cn_hidden_states = self.process_controlnet(
                 latent, mask_f, extended_c, global_c
             )
+        else:
+            cn_hidden_states = []
         # cn_hidden_states = self.controlnet(latent, mask_f, extended_c, self.latent_rot)
 
         for i, block in enumerate(self.joint_blocks):
@@ -484,7 +486,19 @@ class MMAudio(nn.Module):
                 latent = cn_hidden_states[i] + latent
 
         for block in self.fused_blocks:
+            if (
+                self.cn_agg_schema.for_fused_blocks
+                and self.cn_agg_schema.sum_pre_dit_block
+                and i < len(cn_hidden_states)
+            ):
+                latent = cn_hidden_states[i] + latent
             latent = block(latent, extended_c, self.latent_rot)
+            if (
+                self.cn_agg_schema.for_fused_blocks
+                and self.cn_agg_schema.sum_post_dit_block
+                and i < len(cn_hidden_states)
+            ):
+                latent = cn_hidden_states[i] + latent
 
         flow = self.final_layer(latent, global_c)  # (B, N, out_dim), remove t
         return flow

@@ -3,6 +3,7 @@ import math
 import random
 from datetime import timedelta
 from pathlib import Path
+from collections import OrderedDict
 
 import hydra
 import numpy as np
@@ -135,6 +136,14 @@ def train(cfg: DictConfig):
     current_epoch = curr_iter // len(loader)
     info_if_rank_zero(log, f"We will approximately use {total_epoch} epochs.")
 
+    # save best model
+    keep_top_k_best = 3
+    cur_best_val_loss = float("inf")
+    best_models = OrderedDict()
+    # early stop
+    last_val_loss = float("inf")
+    patience = 5  # epochs
+
     # training loop
     try:
         # Need this to select random bases in different workers
@@ -158,6 +167,25 @@ def train(cfg: DictConfig):
                     for data in val_loader:
                         trainer.validation_pass(data, curr_iter)
                     distributed.barrier()
+                    if local_rank == 0:
+                        cur_val_loss = (
+                            trainer.val_integrator.values["loss"]
+                            / trainer.val_integrator.counts["loss"]
+                        )
+                        if cur_val_loss < cur_best_val_loss:
+                            info_if_rank_zero(
+                                log, f"Saving new best ckpt in iteration {curr_iter}."
+                            )
+                            cur_best_val_loss = cur_val_loss
+                            model_path = trainer.save_checkpoint(
+                                curr_iter, save_copy=True, saving_best=True
+                            )
+                            best_models[cur_val_loss] = model_path
+                            if len(best_models) > keep_top_k_best:
+                                best_models = OrderedDict(sorted(best_models.items()))
+                                _, v = best_models.popitem(last=True)
+                                v.unlink(missing_ok=True)
+
                     trainer.val_integrator.finalize("val", curr_iter, ignore_timer=True)
                     trainer.rng.graphsafe_set_state(train_rng_snapshot)
 

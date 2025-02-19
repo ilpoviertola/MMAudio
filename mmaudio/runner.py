@@ -112,7 +112,7 @@ class Runner:
                 tod_vae_ckpt=cfg["vae_16k_ckpt"],
                 bigvgan_vocoder_ckpt=cfg["bigvgan_vocoder_ckpt"],
                 synchformer_ckpt=cfg["synchformer_ckpt"],
-                enable_conditions=True,
+                enable_conditions=False,  # True,
                 mode=mode,
                 need_vae_encoder=False,
             )
@@ -120,7 +120,7 @@ class Runner:
             self.features = FeaturesUtils(
                 tod_vae_ckpt=cfg["vae_44k_ckpt"],
                 synchformer_ckpt=cfg["synchformer_ckpt"],
-                enable_conditions=True,
+                enable_conditions=False,  # True,
                 mode=mode,
                 need_vae_encoder=False,
             )
@@ -622,7 +622,7 @@ class Runner:
         torch.save(self.network.module.state_dict(), model_path)
         self.log.info(f"Network weights saved to {model_path}.")
 
-    def save_checkpoint(self, it, save_copy=False):
+    def save_checkpoint(self, it, save_copy=False, saving_best=False):
         if local_rank != 0:
             return
 
@@ -639,6 +639,9 @@ class Runner:
             model_path = self.run_path / f"{self.exp_id}_ckpt_{it}.pth"
             torch.save(checkpoint, model_path)
             self.log.info(f"Checkpoint saved to {model_path}.")
+            # if saving_best we do not want to save last
+            if saving_best:
+                return model_path
 
         # if ckpt_last exists, move it to a shadow copy
         model_path = self.run_path / f"{self.exp_id}_ckpt_last.pth"
