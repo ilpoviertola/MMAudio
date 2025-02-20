@@ -57,7 +57,9 @@ class MMAudio(nn.Module):
         use_controlnet: bool = True,
         # controlnet options
         for_joint_blocks: bool = False,
+        joint_indices: Optional[list[int]] = None,
         for_fused_blocks: bool = False,
+        fused_indices: Optional[list[int]] = None,
         for_latent: bool = False,
         sum_pre_dit_block: bool = False,
         sum_post_dit_block: bool = False,
@@ -208,9 +210,21 @@ class MMAudio(nn.Module):
 
         self.use_controlnet = use_controlnet
         if use_controlnet:
+            if for_joint_blocks and joint_indices is None:
+                joint_indices = list(range(len(self.joint_blocks)))
+            elif not for_joint_blocks:
+                joint_indices = []
+            if for_fused_blocks and fused_indices is None:
+                fused_indices = list(range(len(self.fused_blocks)))
+            elif not for_fused_blocks:
+                fused_indices = []
+            assert joint_indices is not None, f"{joint_indices=}"
+            assert fused_indices is not None, f"{fused_indices=}"
             self.cn_agg_schema = ControlNetAggregationSchema(
                 for_joint_blocks=for_joint_blocks,
+                joint_indices=joint_indices,
                 for_fused_blocks=for_fused_blocks,
+                fused_indices=fused_indices,
                 for_latent=for_latent,
                 sum_pre_dit_block=sum_pre_dit_block,
                 sum_post_dit_block=sum_post_dit_block,
@@ -241,7 +255,7 @@ class MMAudio(nn.Module):
             # Step 3: Initialize the ControlNet
             self.controlnet = DiTControlNetForLatentBlock(
                 hidden_dim=hidden_dim,
-                depth=(depth - fused_depth),
+                depth=(len(joint_indices) + len(fused_indices)),
                 num_heads=num_heads,
                 mlp_ratio=mlp_ratio,
                 add_mask_f_to_latent=add_mask_f_to_latent,
@@ -465,6 +479,7 @@ class MMAudio(nn.Module):
         for i, block in enumerate(self.joint_blocks):
             if (
                 self.cn_agg_schema.for_joint_blocks
+                and i in self.cn_agg_schema.joint_indices
                 and self.cn_agg_schema.sum_pre_dit_block
                 and i < len(cn_hidden_states)
             ):
@@ -480,14 +495,16 @@ class MMAudio(nn.Module):
             )  # (B, N, D)
             if (
                 self.cn_agg_schema.for_joint_blocks
+                and i in self.cn_agg_schema.joint_indices
                 and self.cn_agg_schema.sum_post_dit_block
                 and i < len(cn_hidden_states)
             ):
                 latent = cn_hidden_states[i] + latent
 
-        for block in self.fused_blocks:
+        for i, block in enumerate(self.fused_blocks):
             if (
                 self.cn_agg_schema.for_fused_blocks
+                and i in self.cn_agg_schema.fused_indices
                 and self.cn_agg_schema.sum_pre_dit_block
                 and i < len(cn_hidden_states)
             ):
@@ -495,6 +512,7 @@ class MMAudio(nn.Module):
             latent = block(latent, extended_c, self.latent_rot)
             if (
                 self.cn_agg_schema.for_fused_blocks
+                and i in self.cn_agg_schema.fused_indices
                 and self.cn_agg_schema.sum_post_dit_block
                 and i < len(cn_hidden_states)
             ):
