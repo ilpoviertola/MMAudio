@@ -82,7 +82,7 @@ ExtractedAVS_val:
 ExtractedAVS_test:
   tag: test
   gt_cache: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/test_eval_cache
-  output_subdir: test
+  output_subdir: null
   tsv: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap/avs-test.tsv
   memmap_dir: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap_with_maskvideo/avs-test
 
