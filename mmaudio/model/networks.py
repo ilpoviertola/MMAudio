@@ -506,17 +506,21 @@ class MMAudio(nn.Module):
                 self.cn_agg_schema.for_fused_blocks
                 and i in self.cn_agg_schema.fused_indices
                 and self.cn_agg_schema.sum_pre_dit_block
-                and i < len(cn_hidden_states)
+                and (i + len(self.cn_agg_schema.joint_indices)) < len(cn_hidden_states)
             ):
-                latent = cn_hidden_states[i] + latent
+                latent = (
+                    cn_hidden_states[i + len(self.cn_agg_schema.joint_indices)] + latent
+                )
             latent = block(latent, extended_c, self.latent_rot)
             if (
                 self.cn_agg_schema.for_fused_blocks
                 and i in self.cn_agg_schema.fused_indices
                 and self.cn_agg_schema.sum_post_dit_block
-                and i < len(cn_hidden_states)
+                and (i + len(self.cn_agg_schema.joint_indices)) < len(cn_hidden_states)
             ):
-                latent = cn_hidden_states[i] + latent
+                latent = (
+                    cn_hidden_states[i + len(self.cn_agg_schema.joint_indices)] + latent
+                )
 
         flow = self.final_layer(latent, global_c)  # (B, N, out_dim), remove t
         return flow

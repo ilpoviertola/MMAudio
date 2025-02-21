@@ -59,15 +59,18 @@ class ControlNetAggregationSchema:
     """
 
     for_joint_blocks: bool
+    joint_indices: list[int]
     for_fused_blocks: bool
+    fused_indices: list[int]
     for_latent: bool
     sum_pre_dit_block: bool
     sum_post_dit_block: bool
 
     def __post_init__(self):
-        assert (
-            self.for_joint_blocks or self.for_fused_blocks
-        ), f"{self.for_joint_blocks=} {self.for_fused_blocks=}"
+        if self.for_joint_blocks:
+            assert self.joint_indices, f"{self.joint_indices=}"
+        if self.for_fused_blocks:
+            assert self.fused_indices, f"{self.fused_indices=}"
         if self.for_fused_blocks:
             assert self.for_latent, f"{self.for_latent=}"
         assert (
