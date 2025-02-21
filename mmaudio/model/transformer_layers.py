@@ -38,7 +38,7 @@ class SelfAttention(nn.Module):
             # self.qkv = lora.MergedLinear(
             #     dim, dim * 3, r=8, enable_lora=[True, False, True], bias=True
             # )
-            self.qkv = lora.Linear(dim, dim * 3, r=8, bias=True)
+            self.qkv = lora.Linear(dim, dim * 3, r=64, bias=True)
         else:
             self.qkv = nn.Linear(dim, dim * 3, bias=True)
         self.q_norm = nn.RMSNorm(dim // nheads)
