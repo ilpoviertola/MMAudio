@@ -230,6 +230,7 @@ def train(cfg: DictConfig):
     distributed.barrier()
 
     log.info(f"Evaluation: {eval_cfg}")
+    eval_cfg.exp_id = cfg.exp_id
     sample(eval_cfg)
 
     # clean-up
