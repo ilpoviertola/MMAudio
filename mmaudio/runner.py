@@ -72,6 +72,7 @@ class Runner:
                 latent_std=latent_std,
                 empty_string_feat=empty_string_feat,
                 **cfg.controlnet_cfg,
+                use_lora=cfg.get("use_lora", False),
             ).cuda(),
             device_ids=[local_rank],
             broadcast_buffers=False,

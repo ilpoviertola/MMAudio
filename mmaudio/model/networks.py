@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from timm.layers import trunc_normal_
+import loralib as lora
 
 from mmaudio.ext.rotary_embeddings import compute_rope_rotations
 from mmaudio.model.embeddings import TimestepEmbedder
@@ -70,9 +71,12 @@ class MMAudio(nn.Module):
         use_preprocess_conv: bool = False,
         use_extended_c: bool = False,
         use_global_c: bool = False,
+        # lora
+        use_lora: bool = False,
     ) -> None:
         super().__init__()
 
+        self.use_lora = use_lora
         self.v2 = v2
         self.latent_dim = latent_dim
         self._latent_seq_len = latent_seq_len
@@ -157,6 +161,10 @@ class MMAudio(nn.Module):
             self.t_embed = TimestepEmbedder(
                 hidden_dim, frequency_embedding_size=256, max_period=10000
             )
+
+        if use_lora:
+            log.info("Using LoRA for the latent blocks")
+
         self.joint_blocks = nn.ModuleList(
             [
                 JointBlock(
@@ -164,6 +172,7 @@ class MMAudio(nn.Module):
                     num_heads,
                     mlp_ratio=mlp_ratio,
                     pre_only=(i == depth - fused_depth - 1),
+                    use_lora=use_lora,
                 )
                 for i in range(depth - fused_depth)
             ]
@@ -172,7 +181,12 @@ class MMAudio(nn.Module):
         self.fused_blocks = nn.ModuleList(
             [
                 MMDitSingleBlock(
-                    hidden_dim, num_heads, mlp_ratio=mlp_ratio, kernel_size=3, padding=1
+                    hidden_dim,
+                    num_heads,
+                    mlp_ratio=mlp_ratio,
+                    kernel_size=3,
+                    padding=1,
+                    use_lora=use_lora,
                 )
                 for i in range(fused_depth)
             ]
@@ -236,10 +250,13 @@ class MMAudio(nn.Module):
             )
             log.info("Freezing the original model branch")
             # hack incoming
-            self.use_controlnet = False
-            self.requires_grad_(False)
-            self.eval()
-            self.use_controlnet = True
+            if self.use_lora:
+                lora.mark_only_lora_as_trainable(self)
+            else:
+                self.use_controlnet = False
+                self.requires_grad_(False)
+                self.use_controlnet = True
+                self.eval()
             # hack ends
 
             # Step 2: Initialize the mask encoder
@@ -277,16 +294,14 @@ class MMAudio(nn.Module):
             self.mask_enc.requires_grad_(requires_grad)
             self.controlnet.requires_grad_(requires_grad)
             return self
-        else:
-            return super().requires_grad_(requires_grad)
+        return super().requires_grad_(requires_grad)
 
     def train(self, mode=True):
-        if self.use_controlnet:
+        if self.use_controlnet and not self.use_lora:
             self.mask_enc.train(mode)
             self.controlnet.train(mode)
             return self
-        else:
-            return super().train(mode)
+        return super().train(mode)
 
     def initialize_rotations(self):
         base_freq = 1.0
