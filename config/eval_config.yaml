@@ -1,5 +1,6 @@
 defaults:
   - base_config
+  - override data: full_sync_maps
   - override hydra/job_logging: custom-simplest
   - _self_
 

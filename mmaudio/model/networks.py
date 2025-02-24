@@ -9,6 +9,7 @@ from timm.layers import trunc_normal_
 import loralib as lora
 
 from mmaudio.ext.rotary_embeddings import compute_rope_rotations
+from mmaudio.ext.synchformer.motionformer import SpatialTransformerEncoderLayer
 from mmaudio.model.embeddings import TimestepEmbedder
 from mmaudio.model.low_level import MLP, ChannelLastConv1d, ConvMLP
 from mmaudio.model.transformer_layers import FinalBlock, JointBlock, MMDitSingleBlock
@@ -263,9 +264,33 @@ class MMAudio(nn.Module):
             log.info("Initializing the mask encoder")
             if not masks_encoded:
                 self.mask_enc = MaskVideoEncoder(
-                    depth=2, num_heads=8, aggregate_space=True
+                    depth=2, num_heads=8, aggregate_space=False
                 )
                 self.initalize_mask_enc_weights()
+                self.agg = SpatialTransformerEncoderLayer(  # type: ignore
+                    d_model=768,
+                    nhead=8,
+                    activation=nn.GELU(),
+                    batch_first=True,
+                    dim_feedforward=int(4 * 768),
+                    dropout=0.0,
+                    layer_norm_eps=1e-6,
+                    norm_first=True,
+                )
+                sd = torch.load(
+                    "ext_weights/synchformer_state_dict.pth",
+                    weights_only=True,
+                    map_location="cpu",
+                )
+                sd = {
+                    k[33:]: v
+                    for k, v in sd.items()
+                    if k.startswith("vfeat_extractor.spatial_attn_agg")
+                }
+                self.agg.load_state_dict(
+                    state_dict=sd,
+                    strict=True,
+                )
             else:
                 self.mask_enc = nn.Identity()  # type: ignore
 

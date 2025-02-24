@@ -15,6 +15,7 @@ from av_bench.extract import extract
 from nitrous_ema import PostHocEMA
 from omegaconf import DictConfig
 from torch.nn.parallel import DistributedDataParallel as DDP
+from einops import rearrange
 
 from mmaudio.model.flow_matching import FlowMatching
 from mmaudio.model.networks import get_my_mmaudio
@@ -353,6 +354,12 @@ class Runner:
 
             # encode mask video
             mask_f = self.network.module.mask_enc(mask_vid)
+            sync_f = rearrange(sync_f, "b (s t) h w d -> (b s) t h w d", t=8)
+            sync_f = sync_f.permute(0, 4, 1, 2, 3)
+            mask_f = self.network.module.agg(sync_f * mask_f)
+            mask_f = rearrange(mask_f, "(b s) t d -> b (s t) d", b=text_f.shape[0])
+            sync_f = self.network.module.agg(sync_f)
+            sync_f = rearrange(sync_f, "(b s) t d -> b (s t) d", b=text_f.shape[0])
 
             # these masks are for non-existent data; masking for CFG training is in train_fn
             clip_f[~video_exist] = self.network.module.empty_clip_feat
@@ -483,6 +490,12 @@ class Runner:
 
             # encode mask video
             mask_f = self.network.module.mask_enc(mask_vid)
+            sync_f = rearrange(sync_f, "b (s t) h w d -> (b s) t h w d", t=8)
+            sync_f = sync_f.permute(0, 4, 1, 2, 3)
+            mask_f = self.network.module.agg(sync_f * mask_f)
+            mask_f = rearrange(mask_f, "(b s) t d -> b (s t) d", b=text_f.shape[0])
+            sync_f = self.network.module.agg(sync_f)
+            sync_f = rearrange(sync_f, "(b s) t d -> b (s t) d", b=text_f.shape[0])
 
             clip_f[~video_exist] = self.network.module.empty_clip_feat
             sync_f[~video_exist] = self.network.module.empty_sync_feat
@@ -517,6 +530,12 @@ class Runner:
 
             # encode mask video
             mask_f = self.network.module.mask_enc(mask_vid)
+            sync_f = rearrange(sync_f, "b (s t) h w d -> (b s) t h w d", t=8)
+            sync_f = sync_f.permute(0, 4, 1, 2, 3)
+            mask_f = self.network.module.agg(sync_f * mask_f)
+            mask_f = rearrange(mask_f, "(b s) t d -> b (s t) d", b=text_f.shape[0])
+            sync_f = self.network.module.agg(sync_f)
+            sync_f = rearrange(sync_f, "(b s) t d -> b (s t) d", b=text_f.shape[0])
 
             clip_f[~video_exist] = self.network.module.empty_clip_feat
             sync_f[~video_exist] = self.network.module.empty_sync_feat

@@ -68,11 +68,11 @@ class FeaturesUtils(nn.Module):
                 torch.load(synchformer_ckpt, weights_only=True, map_location="cpu")
             )
             self.agg_spatial = True
-            # if mode == "44k_avs":
-            # self.synchformer.vfeat_extractor.spatial_attn_agg = (
-            #     IdentityWithMultipleInputs()
-            # )
-            # self.agg_spatial = False
+            if mode == "44k_avs":
+                self.synchformer.vfeat_extractor.spatial_attn_agg = (
+                    IdentityWithMultipleInputs()
+                )
+                self.agg_spatial = False
 
             self.tokenizer = open_clip.get_tokenizer(
                 "ViT-H-14-378-quickgelu"
