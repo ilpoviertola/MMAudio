@@ -7,7 +7,9 @@ from mmaudio.model.networks import get_my_mmaudio
 
 
 def synthesize_ema(cfg: DictConfig, sigma: float, step: Optional[int]):
-    vae = get_my_mmaudio(cfg.model, **cfg.get("controlnet_cfg", {}))
+    vae = get_my_mmaudio(
+        cfg.model, **cfg.get("controlnet_cfg", {}), use_lora=cfg.get("use_lora", False)
+    )
     emas = PostHocEMA(
         vae,
         sigma_rels=cfg.ema.sigma_rels,

@@ -255,8 +255,8 @@ class MMAudio(nn.Module):
             else:
                 self.use_controlnet = False
                 self.requires_grad_(False)
-                self.use_controlnet = True
                 self.eval()
+                self.use_controlnet = True
             # hack ends
 
             # Step 2: Initialize the mask encoder
