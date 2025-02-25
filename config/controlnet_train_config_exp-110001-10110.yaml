@@ -1,6 +1,6 @@
 defaults:
   - base_config
-  - override data: base
+  - override data: slurm
   - override hydra/job_logging: custom
   - _self_
 
@@ -12,7 +12,7 @@ hydra:
 ema:
   start: 0
 
-exp_id: controlnet_small-44k_m-to-l-gc_sum-pre_no-preconv
+exp_id: controlnet_small-44k_m-to-l-ec_sum-pre_preconv
 model: small_44k_avs
 mini_train: False
 example_train: False
@@ -21,23 +21,23 @@ weights: weights/mmaudio_small_44k.pth
 
 log_text_interval: 20
 log_extra_interval: 500
-val_interval: 500
-eval_interval: 7_000
-save_eval_interval: 14_000
-save_weights_interval: 3_000
-save_checkpoint_interval: 3_000
+val_interval: 250
+eval_interval: 4_000
+save_eval_interval: 7_000
+save_weights_interval: 1_500
+save_checkpoint_interval: 1_500
 save_copy_iterations: []
 
-num_workers: 16
-batch_size: 6
+num_workers: 10
+batch_size: 16
 eval_batch_size: 4 # per-GPU
 
-num_iterations: 70_000
+num_iterations: 35_000
 learning_rate: 1.0e-5
 linear_warmup_steps: 100
 
 lr_schedule: step
-lr_schedule_steps: [60_000, 65_000]
+lr_schedule_steps: [30_000, 33_000]
 lr_schedule_gamma: 0.1
 
 clip_grad_norm: 1.0
@@ -49,11 +49,11 @@ null_text_condition_probability: 0.5
 controlnet_cfg:
   # schema
   add_mask_f_to_latent: 1
-  use_extended_c: 0
-  use_global_c: 1
+  use_extended_c: 1
+  use_global_c: 0
   add_mask_f_to_extended_c: 0
   add_mask_f_to_global_c: 0
-  use_preprocess_conv: 0
+  use_preprocess_conv: 1
   # aggregation
   for_joint_blocks: 1
   for_fused_blocks: 0

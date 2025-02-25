@@ -12,7 +12,7 @@ hydra:
 ema:
   start: 0
 
-exp_id: controlnet_small-44k_m-to-gc_sum-pre_no-preconv
+exp_id: controlnet_small-44k_m-to-l-gc_sum-pre_no-preconv
 model: small_44k_avs
 mini_train: False
 example_train: False
@@ -48,11 +48,11 @@ null_text_condition_probability: 0.5
 
 controlnet_cfg:
   # schema
-  add_mask_f_to_latent: 0
+  add_mask_f_to_latent: 1
   use_extended_c: 0
   use_global_c: 1
   add_mask_f_to_extended_c: 0
-  add_mask_f_to_global_c: 1
+  add_mask_f_to_global_c: 0
   use_preprocess_conv: 0
   # aggregation
   for_joint_blocks: 1
