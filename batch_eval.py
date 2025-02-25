@@ -46,7 +46,13 @@ def main(cfg: DictConfig):
 
     # load a pretrained model
     seq_cfg.duration = cfg.duration_s
-    net: MMAudio = get_my_mmaudio(cfg.model).to(device).eval()
+    net: MMAudio = (
+        get_my_mmaudio(
+            model.model_name, **cfg.controlnet_cfg, use_lora=cfg.get("use_lora", False)
+        )
+        .to(device)
+        .eval()
+    )
     net.load_weights(
         torch.load(model.model_path, map_location=device, weights_only=True)
     )

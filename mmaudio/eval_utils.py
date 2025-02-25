@@ -71,6 +71,33 @@ small_44k_avs = ModelConfig(
     bigvgan_16k_path=None,
     mode="44k_avs",
 )
+controlnet_small_44k_m_to_l_sum_pre_no_preconv = ModelConfig(
+    model_name="small_44k_avs",
+    model_path=Path(
+        "/home/hdd/ilpo/checkpoints/mmaudio/trained_on_csc/mahti/controlnet_small-44k_m-to-l_sum-pre_no-preconv/controlnet_small-44k_m-to-l_sum-pre_no-preconv_ema_final.pth"
+    ),
+    vae_path=Path("./ext_weights/v1-44.pth"),
+    bigvgan_16k_path=None,
+    mode="44k_avs",
+)
+controlnet_small_44k_m_to_l_ec_joint_fused_sum_pre_no_preconv = ModelConfig(
+    model_name="small_44k_avs",
+    model_path=Path(
+        "/home/hdd/ilpo/checkpoints/mmaudio/trained_on_csc/mahti/controlnet_small-44k_m-to-l-ec-joint-fused_sum-pre_no-preconv/controlnet_small-44k_m-to-l-ec-joint-fused_sum-pre_no-preconv_ema_final.pth"
+    ),
+    vae_path=Path("./ext_weights/v1-44.pth"),
+    bigvgan_16k_path=None,
+    mode="44k_avs",
+)
+controlnet_small_44k_m_to_l_ec_sum_pre_no_preconv_lora = ModelConfig(
+    model_name="small_44k_avs",
+    model_path=Path(
+        "/home/hdd/ilpo/checkpoints/mmaudio/trained_on_csc/mahti/controlnet_small-44k_m-to-l-ec_sum-pre_no-preconv_lora/controlnet_small-44k_m-to-l-ec_sum-pre_no-preconv_lora_ema_final.pth"
+    ),
+    vae_path=Path("./ext_weights/v1-44.pth"),
+    bigvgan_16k_path=None,
+    mode="44k_avs",
+)
 medium_44k = ModelConfig(
     model_name="medium_44k",
     model_path=Path("./weights/mmaudio_medium_44k.pth"),
@@ -99,6 +126,9 @@ all_model_cfg: dict[str, ModelConfig] = {
     "medium_44k": medium_44k,
     "large_44k": large_44k,
     "large_44k_v2": large_44k_v2,
+    "controlnet_small_44k_m_to_l_sum_pre_no_preconv": controlnet_small_44k_m_to_l_sum_pre_no_preconv,
+    "controlnet_small_44k_m_to_l_ec_joint_fused_sum_pre_no_preconv": controlnet_small_44k_m_to_l_ec_joint_fused_sum_pre_no_preconv,
+    "controlnet_small_44k_m_to_l_ec_sum_pre_no_preconv_lora": controlnet_small_44k_m_to_l_ec_sum_pre_no_preconv_lora,
 }
 
 
