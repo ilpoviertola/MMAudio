@@ -231,6 +231,9 @@ def train(cfg: DictConfig):
 
     log.info(f"Evaluation: {eval_cfg}")
     eval_cfg.exp_id = cfg.exp_id
+    eval_cfg.controlnet_cfg = cfg.controlnet_cfg
+    eval_cfg.use_lora = cfg.use_lora
+    eval_cfg.model = cfg.model
     sample(eval_cfg)
 
     # clean-up
