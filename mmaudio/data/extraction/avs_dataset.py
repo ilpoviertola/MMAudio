@@ -36,7 +36,7 @@ class AVS(Dataset):
         normalize_audio: bool = False,
     ):
         self.root = Path(root)
-        self.mask_root = Path(str(root).replace("raw_videos", "gt_masks"))
+        self.mask_root = Path(str(root).replace(f"{self.root.parent.name}", "gt_masks"))
         self.normalize_audio = normalize_audio
         if audio_samples is None:
             self.audio_samples = int(sample_rate * duration_sec)
@@ -55,15 +55,26 @@ class AVS(Dataset):
         missing_videos = []
 
         # read the tsv for subset information
-        df_list = pd.read_csv(tsv_path, sep="\t", dtype={"id": str}).to_dict("records")
-        for record in df_list:
-            id = record["id"]
-            label = record["label"]
-            if id in videos:
-                self.labels[id] = label
-                self.videos.append(id)
-            else:
+        df = pd.read_csv(tsv_path, sep="\t", dtype={"id": str})
+        df_dict = df.set_index("id")["label"].to_dict()
+        for video in videos:
+            id = video[:11]
+            label = df_dict.get(id, None)
+            if label is None:
                 missing_videos.append(id)
+                continue
+
+            self.labels[video] = label
+            self.videos.append(video)
+
+        # for record in df_list:
+        #     id = record["id"]
+        #     label = record["label"]
+        #     if id_exists_in_list(id, videos):
+        #         self.labels[id] = label
+        #         self.videos.append(id)
+        #     else:
+        #         missing_videos.append(id)
 
         if local_rank == 0:
             log.info(f"{len(videos)} videos found in {root}")
@@ -89,8 +100,10 @@ class AVS(Dataset):
 
         self.sync_transform = v2.Compose(
             [
-                v2.Resize(_SYNC_SIZE, interpolation=v2.InterpolationMode.BICUBIC),
-                v2.CenterCrop(_SYNC_SIZE),
+                v2.Resize(
+                    (_SYNC_SIZE, _SYNC_SIZE), interpolation=v2.InterpolationMode.BICUBIC
+                ),
+                # v2.CenterCrop(_SYNC_SIZE),
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
                 v2.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
@@ -192,10 +205,10 @@ class AVS(Dataset):
                 f"expected {self.sync_expected_length}, "
                 f"got {sync_chunk.shape[0]}"
             )
-        sync_chunk = self.sync_transform[0:2](sync_chunk)
+        sync_chunk = self.sync_transform(sync_chunk)
 
         # mask video
-        mask_chunk = self.get_extended_masks(self.mask_root / label / video_id)
+        mask_chunk = self.get_extended_masks(self.mask_root / label / video_id[:11])
         mask_chunk = self.mask_video_transform(mask_chunk)
         mask_chunk = mask_chunk[: self.sync_expected_length]
         if mask_chunk.shape[0] != self.sync_expected_length:
@@ -204,7 +217,7 @@ class AVS(Dataset):
                 f"expected {self.sync_expected_length}, "
                 f"got {mask_chunk.shape[0]}"
             )
-        mask_chunk = self.sync_transform(mask_chunk)
+        # mask_chunk = self.sync_transform(mask_chunk)
 
         data = {
             "id": video_id,

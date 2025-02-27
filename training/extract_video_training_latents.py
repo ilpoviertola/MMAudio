@@ -71,17 +71,17 @@ data_cfg = {
     #     "normalize_audio": True,
     # },
     "train": {
-        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos/train",
+        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos_gen/train",
         "subset_name": "./sets/avs-train.tsv",
         "normalize_audio": True,
     },
     "test": {
-        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos/test",
+        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos_gen/test",
         "subset_name": "./sets/avs-test.tsv",
         "normalize_audio": False,
     },
     "val": {
-        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos/val",
+        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos_gen/val",
         "subset_name": "./sets/avs-val.tsv",
         "normalize_audio": False,
     },
@@ -235,10 +235,7 @@ def extract():
                     output_data["sync_features"].append(data["sync_features"][bi])
                     output_data["text_features"].append(data["text_features"][bi])
                     if AVS_DATASET:
-                        mv: torch.Tensor = data["mask_video"][bi]
-                        mv.mul_(0.5).add_(0.5)
-                        mv = mv[:, 0:1]
-                        output_data["mask_video"].append(mv)
+                        output_data["mask_video"].append(data["mask_video"][bi])
 
             output_dir.mkdir(parents=True, exist_ok=True)
             output_df = pd.DataFrame(list_of_ids_and_labels)
@@ -254,5 +251,12 @@ def extract():
 
 
 if __name__ == "__main__":
+    # import os
+    # import debugpy
+
+    # rank = int(os.getenv("RANK", "-1"))
+    # port = rank + 5678
+    # debugpy.listen(("127.0.0.1", port))
+    # debugpy.wait_for_client()
     extract()
     distributed.destroy_process_group()
