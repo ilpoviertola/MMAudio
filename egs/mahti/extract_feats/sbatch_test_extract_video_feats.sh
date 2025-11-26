@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=mma-cn_test-train
+#SBATCH --job-name=mma-extr-vid-feats
 #SBATCH --account=project_2000936
 #SBATCH --output=./sbatch_logs/%J.log
 #SBATCH --error=./sbatch_logs/%J.log
@@ -9,17 +9,13 @@
 #SBATCH --partition=gputest
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:a100:2,nvme:100
-#SBATCH --cpus-per-task=20
+#SBATCH --cpus-per-task=10
 #SBATCH --mem-per-gpu=122500M
 #SBATCH --time=00:15:00
 
-module load git
 export PATH="/projappl/project_2000936/viertoli/MMAudio/env/bin:$PATH"
 set -e
 
-# Define the YAML file path as the first argument provided to the script
-yaml_file="$1"
-
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
-srun torchrun --standalone --nproc_per_node=2 train.py --config-name $yaml_file debug=True
+srun torchrun --standalone --nproc_per_node=2 training/extract_video_training_latents.py --output_dir /scratch/project_2000936/viertoli/datasets/avssemantic-single-source-unagg-full-sync-map --latent_dir /scratch/project_2000936/viertoli/datasets/tmp

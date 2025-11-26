@@ -69,22 +69,22 @@ AVS:
   sample_duration_sec: 5.0
 
 ExtractedAVS:
-  tsv: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap/avs-train.tsv
-  memmap_dir: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap_with_maskvideo/avs-train
+  tsv: /scratch/project_2000936/viertoli/datasets/avssemantic-single-source/avs-train.tsv
+  memmap_dir: /scratch/project_2000936/viertoli/datasets/avssemantic-single-source/avs-train
 
 ExtractedAVS_val:
   tag: val
   gt_cache: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/val_eval_cache
   output_subdir: val
-  tsv: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap/avs-val.tsv
-  memmap_dir: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap_with_maskvideo/avs-val
+  tsv: /scratch/project_2000936/viertoli/datasets/avssemantic-single-source/avs-val.tsv
+  memmap_dir: /scratch/project_2000936/viertoli/datasets/avssemantic-single-source/avs-val
 
 ExtractedAVS_test:
   tag: test
   gt_cache: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/test_eval_cache
   output_subdir: null
-  tsv: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap/avs-test.tsv
-  memmap_dir: /home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/memmap_with_maskvideo/avs-test
+  tsv: /scratch/project_2000936/viertoli/datasets/avssemantic-single-source/avs-test.tsv
+  memmap_dir: /scratch/project_2000936/viertoli/datasets/avssemantic-single-source/avs-test
 
 Example_video:
   tsv: ./training/example_output/memmap/vgg-example.tsv

@@ -71,17 +71,17 @@ data_cfg = {
     #     "normalize_audio": True,
     # },
     "train": {
-        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos_gen/train",
+        "root": "/scratch/project_2000936/viertoli/datasets/avssemantic-single-source/raw/AVSSemantic/Single-source/s4_data/raw_videos/train",
         "subset_name": "./sets/avs-train.tsv",
         "normalize_audio": True,
     },
     "test": {
-        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos_gen/test",
+        "root": "/scratch/project_2000936/viertoli/datasets/avssemantic-single-source/raw/AVSSemantic/Single-source/s4_data/raw_videos/test",
         "subset_name": "./sets/avs-test.tsv",
         "normalize_audio": False,
     },
     "val": {
-        "root": "/home/hdd/ilpo/datasets/AVSSemantic/Single-source/s4_data/raw_videos_gen/val",
+        "root": "/scratch/project_2000936/viertoli/datasets/avssemantic-single-source/raw/AVSSemantic/Single-source/s4_data/raw_videos/val",
         "subset_name": "./sets/avs-val.tsv",
         "normalize_audio": False,
     },
